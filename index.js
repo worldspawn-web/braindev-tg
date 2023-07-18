@@ -8,6 +8,7 @@ const cron = require('node-cron');
 const token = '6328418661:AAEw1q23_4xv3sclbcC0d91aFPk4kIXi8Zo';
 const bot = new TelegramApi(token, { polling: true });
 
+// gets a random question from db
 const getRandomQuestion = async () => {
   try {
     const randomQuestion = await Question.findOne({
@@ -20,9 +21,10 @@ const getRandomQuestion = async () => {
   }
 };
 
+// starts the game
 const start = async () => {
-  // db connection
   try {
+    // database connection
     await sequelize.authenticate();
     console.log('Connected.');
 
@@ -33,11 +35,12 @@ const start = async () => {
     console.error('Unable to connect to the database:\n', e);
   }
 
+  // sends 1 question per 12 hours (2 daily tasks)
   cron.schedule('0 */12 * * *', async () => {
     await sendQuestion(chatId);
   });
 
-  // custom cmds
+  // custom commands (button)
   bot.setMyCommands([
     { command: '/rules', description: 'Правила игры' },
     { command: '/start', description: 'Начать игру!' },
@@ -63,7 +66,7 @@ const start = async () => {
       }
     };
 
-    // if user doesn't exist, create a new row in database
+    // if user doesn't exist, create a new user row in database
     if (isThisFirstTime(chatId)) {
       try {
         const addedUserStats = await UserStats.create({
@@ -79,15 +82,19 @@ const start = async () => {
       }
     }
 
+    // sends question in chat
     const sendQuestion = async (chatId) => {
       const question = await getRandomQuestion();
       await bot.sendMessage(chatId, question.questionText);
       await bot.sendMessage(chatId, 'Ваш ответ:', gameOptions);
     };
 
+    // handles the user answer
+    // increments/decrements values in sqlite database
+    // sends an explanation
     const handleAnswer = async (chatId, userId, answer) => {
       const question = await getRandomQuestion();
-      // if correct
+      // if correct: increment pos values
       if (question.correctOption === answer) {
         try {
           const userStats = await UserStats.findOne({
@@ -112,7 +119,7 @@ const start = async () => {
           throw e;
         }
       } else {
-        // if incorrect
+        // if incorrect: increment neg values
         try {
           const userStats = await UserStats.findOne({
             where: { userId: chatId },
@@ -165,11 +172,17 @@ const start = async () => {
         );
         return bot.sendMessage(
           chatId,
-          `Приветствую тебя, ${username}!\nДобро пожаловать в Brain-Games!\nЦель игры: ежедневный 'разгон' серого вещества, путём напряжения мозга :)\nНапрягать мозг будем с помощью вопросов на самые различные темы и последующих их объяснений.\nПо началу может быть тяжело, но со временем ты заметишь, что знаешь больше!\nНу что, начнём?`
+          `Приветствую тебя, ${username}!
+          \nДобро пожаловать в Brain-Games!
+          \nЦель игры: ежедневный 'разгон' серого вещества, путём напряжения мозга :)
+          \nНапрягать мозг будем с помощью вопросов на самые различные темы и последующих их объяснений.
+          \nПо началу может быть тяжело, но со временем ты заметишь, что знаешь больше!
+          \nНу что, начнём?`
         );
       }
 
       // starts the game
+      // TODO: startGame() function
       if (text === '/start') {
         startGame(chatId);
       }
@@ -184,7 +197,7 @@ const start = async () => {
         );
       }
 
-      // TODO: shows top-15 of db players
+      // TODO: sends top-15 of players from database in chat
       if (text === '/top') {
         return bot.sendMessage(chatId, `Функция в разработке...`);
       }
