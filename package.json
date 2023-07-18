@@ -1,0 +1,26 @@
+{
+  "name": "braindev-tg",
+  "version": "1.0.0",
+  "description": "Telegram bot with self-development games.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/worldspawn-web/braindev-tg.git"
+  },
+  "author": "Worldspawn",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/worldspawn-web/braindev-tg/issues"
+  },
+  "homepage": "https://github.com/worldspawn-web/braindev-tg#readme",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.61.0",
+    "nodemon": "^3.0.1",
+    "sequelize": "^6.32.1",
+    "sqlite3": "^5.1.6"
+  }
+}
