@@ -1,9 +1,24 @@
 const TelegramApi = require('node-telegram-bot-api');
 const sequelize = require('./sequelize');
 const UserStats = require('./userstats');
+const Question = require('./Question');
+const { gameOptions } = require('./options');
+const cron = require('node-cron');
 
 const token = '6328418661:AAEw1q23_4xv3sclbcC0d91aFPk4kIXi8Zo';
 const bot = new TelegramApi(token, { polling: true });
+
+const getRandomQuestion = async () => {
+  try {
+    const randomQuestion = await Question.findOne({
+      order: sequelize.random(),
+    });
+    return randomQuestion;
+  } catch (e) {
+    console.error('Error while trying to get a random question:', e);
+    throw error;
+  }
+};
 
 const start = async () => {
   // db connection
@@ -15,8 +30,12 @@ const start = async () => {
     await UserStats.sync({ force: true });
     console.log('Table "UserStats" created.');
   } catch (e) {
-    console.error('Unable to connect to the database:\n', error);
+    console.error('Unable to connect to the database:\n', e);
   }
+
+  cron.schedule('0 */12 * * *', async () => {
+    await sendQuestion(chatId);
+  });
 
   // custom cmds
   bot.setMyCommands([
@@ -34,10 +53,10 @@ const start = async () => {
 
     // checker if user is already in database
     const isThisFirstTime = async (chatId) => {
-      const checker = await UserStats.findOne({
+      const userStats = await UserStats.findOne({
         where: { userId: chatId },
       });
-      if (checker) {
+      if (userStats) {
         return true;
       } else {
         return false;
@@ -60,6 +79,64 @@ const start = async () => {
       }
     }
 
+    const sendQuestion = async (chatId) => {
+      const question = await getRandomQuestion();
+      await bot.sendMessage(chatId, question.questionText);
+      await bot.sendMessage(chatId, 'Ваш ответ:', gameOptions);
+    };
+
+    const handleAnswer = async (chatId, userId, answer) => {
+      const question = await getRandomQuestion();
+      // if correct
+      if (question.correctOption === answer) {
+        try {
+          const userStats = await UserStats.findOne({
+            where: { userId: chatId },
+          });
+
+          if (userStats) {
+            const newCorrectAnswers = userStats.correctAnswers + 1;
+            const newTotalGames = userStats.totalGames + 1;
+            await userStats.update({
+              correctAnswers: newCorrectAnswers,
+              totalGames: newTotalGames,
+            });
+            await bot.sendMessage(chatId, 'Правильно!');
+            await bot.sendMessage(
+              chatId,
+              `Объяснение: ${question.explanation}`
+            );
+          }
+        } catch (e) {
+          console.error('Error while handling correct answer:', e);
+          throw e;
+        }
+      } else {
+        // if incorrect
+        try {
+          const userStats = await UserStats.findOne({
+            where: { userId: chatId },
+          });
+          if (userStat) {
+            const newWrongAnswers = userStats.wrongAnswers + 1;
+            const newTotalGames = userStats.totalGames + 1;
+            await userStats.update({
+              wrongAnswers: newWrongAnswers,
+              totalGames: newTotalGames,
+            });
+            await bot.sendMessage(chatId, 'Неправильно!');
+            await bot.sendMessage(
+              chatId,
+              `Объяснение: ${question.explanation}`
+            );
+          }
+        } catch (e) {
+          console.error('Error while handling wrong answer:', e);
+          throw e;
+        }
+      }
+    };
+
     // get total games played count
     const getGamesCount = async (chatId) => {
       try {
@@ -74,7 +151,7 @@ const start = async () => {
         }
       } catch (e) {
         console.error('Error while fetching games played by user:', e);
-        throw error;
+        throw e;
       }
     };
 
@@ -101,7 +178,7 @@ const start = async () => {
       if (text === '/stats') {
         return bot.sendMessage(
           chatId,
-          `Пользователь: ${username}\nКол-во сыгранных игр: ${getGamesCount(
+          `Пользователь: ${username}\nКол-во сыгранных игр: ${await getGamesCount(
             chatId
           )}`
         );

@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/worldspawn-web/braindev-tg#readme",
   "dependencies": {
+    "node-cron": "^3.0.2",
     "node-telegram-bot-api": "^0.61.0",
     "nodemon": "^3.0.1",
     "sequelize": "^6.32.1",
